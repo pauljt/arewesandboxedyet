@@ -12,21 +12,30 @@ Param(
    [string]$processId
 )
 
+[hashtable]$Return = @{} 
+
 Write-Host "Testing process $($processId) migigations"
 $process = Get-NtProcess $ProcessId
 $token = Get-NtToken -Primary -pid $processId
 
-Write-Host "Integrity Level $($token.IntegrityLevel)"
-Write-Output $process.Mitigations 
+#Write-Host "Integrity Level $($token.IntegrityLevel)"
+$Return.IntegrityLevel = ($token.IntegrityLevel)
+#Write-Output $process.Mitigations 
+$Return.Mitigations = ($process.Mitigations)
+
 
 #Check access to registry
 $registryPath = "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\"
-$regAccess = Get-AccessibleKey -ProcessIds $processId -Win32Path $RegistryPath -Recurse
+$RegistryAccess = Get-AccessibleKey -ProcessIds $processId -Win32Path $RegistryPath -Recurse
 
-Write-Host "Number of keys accessible in $($registryPath): $($regAccess.length)"
+#Write-Host "Number of keys accessible in $($registryPath): $($RegistryAccess.length)"
+$Return.RegistryAccess = $RegistryAccess.length
 
 #Check access to files
 $fileSystemPath = "C:\ProgramData"
 $fileAccess = Get-AccessibleFile -ProcessIds $processId -Win32Path $fileSystemPath -Recurse -Tokens $token  -AccessRights GenericWrite -DirectoryAccessRights GenericWrite
 
-Write-Host "Number of file accessible in $($fileSystemPath):$($fileAccess.length)"
+#Write-Host "Number of file accessible in $($fileSystemPath):$($fileAccess.length)"
+$Return.FileSystemAccess = $fileAccess.length
+
+Return $Return 
