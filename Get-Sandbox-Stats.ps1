@@ -25,25 +25,29 @@ $Return.IntegrityLevel = ($token.IntegrityLevel)
 $Return.Mitigations = $process.Mitigations |Select-Object *
 
 
-#Check write access to registry
+############### Check write access to registry
 # HKEY_LOCAL_MACHINE\REGISTRY\MACHINE\SOFTWARE\Microsoft\DRM
 $registryPath = "\Registry\Machine\Software\Microsoft"
-
 $RegistryAccess = Get-AccessibleKey $RegistryPath  -ProcessIds $processId -Recurse -AccessRights GenericWrite
-
-#Write-Host "Number of keys accessible in $($registryPath): $($RegistryAccess.length)"
 $Return.RegistryAccess 
+#Write-Host "Number of keys accessible in $($registryPath): $($RegistryAccess.length)"
 
-#Check access to files
+###############  Check access to files
 $fileSystemPath = "C:\"
 $fileAccess = Get-AccessibleFile -ProcessIds $processId -Win32Path $fileSystemPath -Recurse -Tokens $token  -AccessRights GenericWrite -DirectoryAccessRights GenericWrite
-
-#Write-Host "Number of file accessible in $($fileSystemPath):$($fileAccess.length)"
 $Return.FileSystemAccess = $fileAccess
+#Write-Host "Number of file accessible in $($fileSystemPath):$($fileAccess.length)"
 
 
-#get Write accessible devices under \
+################  Check writable accessible devices under \
 $Return.DeviceAccess = Get-AccessibleDevice \ -Recurse -AccessRights GenericWrite -ProcessIds $processId
 
+################  Check if process has the ability to spawn a new process
+$Return.CreateProcess = $FALSE;
+# Launch a cmd prompt with the token
+$newProcess = New-Win32Process -Token $ptoken -CommandLine c:\Windows\System32\cmd.exe
+if($newProcess){
+    $Return.CreateProcess = $TRUE;
+}
 
 Return $Return 
