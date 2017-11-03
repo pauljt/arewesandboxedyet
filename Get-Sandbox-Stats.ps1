@@ -13,41 +13,38 @@ Param(
    [string]$processId
 )
 
+$DEVICE_TEST_PATH = "\"
+$FILE_TEST_PATH = "C:\ProgramData" #win32path
+$REGISTRY_TEST_PATH ="\Registry\Machine\Software\Microsoft"
+
 [hashtable]$Return = @{} 
 
 Write-Host "Testing process $($processId) migigations"
 $process = Get-NtProcess $ProcessId
 $token = Get-NtToken -Primary -pid $processId
 
-#Write-Host "Integrity Level $($token.IntegrityLevel)"
-$Return.IntegrityLevel = ($token.IntegrityLevel)
-#Write-Output $process.Mitigations 
-$Return.Mitigations = $process.Mitigations |Select-Object *
+# process details
+$Return.integrity = ($token.IntegrityLevel)
+$Return.mitigations = $process.Mitigations |Select-Object *
+#todo get job restrictions
+#todo SIDs, RIDS etc
 
-
-############### Check write access to registry
-# HKEY_LOCAL_MACHINE\REGISTRY\MACHINE\SOFTWARE\Microsoft\DRM
-$registryPath = "\Registry\Machine\Software\Microsoft"
-$RegistryAccess = Get-AccessibleKey $RegistryPath  -ProcessIds $processId -Recurse -AccessRights GenericWrite
-$Return.RegistryAccess 
-#Write-Host "Number of keys accessible in $($registryPath): $($RegistryAccess.length)"
-
-###############  Check access to files
-$fileSystemPath = "C:\"
-$fileAccess = Get-AccessibleFile -ProcessIds $processId -Win32Path $fileSystemPath -Recurse -Tokens $token  -AccessRights GenericWrite -DirectoryAccessRights GenericWrite
-$Return.FileSystemAccess = $fileAccess
-#Write-Host "Number of file accessible in $($fileSystemPath):$($fileAccess.length)"
-
-
-################  Check writable accessible devices under \
-$Return.DeviceAccess = Get-AccessibleDevice \ -Recurse -AccessRights GenericWrite -ProcessIds $processId
+# test access to windows objects
+$Return.regkeys = Get-AccessibleKey $REGISTRY_TEST_PATH  -ProcessIds $processId -Recurse -AccessRights GenericWrite
+$Return.files = Get-AccessibleFile -ProcessIds $processId -Win32Path $FILE_TEST_PATH -Recurse -Tokens $token  -AccessRights GenericWrite -DirectoryAccessRights GenericWrite
+$Return.objects = Get-AccessibleObject -Recurse -AccessRights GenericWrite -ProcessIds $processId -Win32Path \ 
+$Return.alpc =  Get-AccessibleAlpcPort -ProcessIds $processId
+$Return.devices = Get-AccessibleDevice $deviceRoot -Recurse -AccessRights GenericWrite -ProcessIds $processId
+$Return.pipes = Get-AccessibleNamedPipe -ProcessIds $processId 
+$Return.services = Get-AccessibleService -ProcessIds $processId
+$Return.processes = Get-AccessibleProcess -ProcessIds $processId
 
 ################  Check if process has the ability to spawn a new process
-$Return.CreateProcess = $FALSE;
+$Return.createProcess = $FALSE;
 # Launch a cmd prompt with the token
 $newProcess = New-Win32Process -Token $ptoken -CommandLine c:\Windows\System32\cmd.exe
 if($newProcess){
-    $Return.CreateProcess = $TRUE;
+    $Return.createProcess = $TRUE;
 }
 
-Return $Return 
+Return $Return
